@@ -33,14 +33,14 @@ abstract class UlyssesDefaults(info: ProjectInfo) extends DefaultProject(info) w
 
   lazy val docsArtifact = Artifact(artifactID, "docs", "jar", Some("javadoc"), Nil, None)
 
-  def specsDependency = "org.scala-tools.testing" % "specs_2.8.0-SNAPSHOT" % "1.6.5-SNAPSHOT" % "test" withSources
+  val specsDependency = "org.scala-tools.testing" %% "specs" % "1.6.5-SNAPSHOT" % "test" withSources
+
+  val scalacheckDependency = "org.scala-tools.testing" % "scalacheck_2.8.0.RC2" % "1.8-SNAPSHOT" % "test" withSources
 
   val configgy = "Configgy" at "http://www.lag.net/repo"
   
   override def packageToPublishActions = super.packageToPublishActions ++ Seq(packageDocs, packageSrc, packageTestSrc)
 
-  // Workaround for problem described here: http://groups.google.com/group/simple-build-tool/browse_thread/thread/7575ea3c074ee8aa/373a91c25393085c?#373a91c25393085c
-  override def deliverScalaDependencies = Nil
 }
 
 /**
@@ -64,25 +64,14 @@ trait OverridableVersion extends Project {
 final class UlyssesProject(info: ProjectInfo) extends ParentProject(info) with OverridableVersion {
   // Sub-projects
   lazy val core = project("core", "ulysses-core", new Core(_))
-  lazy val stm = project("stm", "ulysses-stm", new Stm(_), core)
-  lazy val scalacheckBinding = project("scalacheck-binding", "scalaz-scalacheck-binding", new ScalacheckBinding(_), core)
-//  lazy val tests = project("tests", "ulysses-test-suite", new TestSuite(_), core, scalacheckBinding)
-  lazy val full = project("full", "ulysses-full", new Full(_), core, scalacheckBinding, stm)
-  lazy val allModules = Seq(core, stm, scalacheckBinding)
+//  lazy val stm = project("stm", "ulysses-stm", new Stm(_), core)
+  lazy val full = project("full", "ulysses-full", new Full(_), core)
+  lazy val allModules = Seq(core)
 
   val publishTo = "Scala Tools Nexus" at "http://nexus.scala-tools.org/content/repositories/snapshots/"
   Credentials(Path.userHome / ".ivy2" / ".credentials", log)
 
-  // This lets you use a local copy of scala. Set build.scala.versions=2.8.0-custom in build.properties.
-  override def localScala = defineScala("2.8.0-custom", Path.userHome / "usr" / "scala-2.8.0.r21276-b20100326020422" asFile) :: Nil
-
   private def noAction = task {None}
-
-  override def deliverLocalAction = noAction
-
-  override def publishLocalAction = noAction
-
-  override def publishAction = task {None}
 
   lazy val retrieveAdditionalSources = task {
       import FileUtilities._
@@ -103,21 +92,20 @@ final class UlyssesProject(info: ProjectInfo) extends ParentProject(info) with O
 
   class Core(info: ProjectInfo) extends UlyssesDefaults(info)
 
-  class Stm(info: ProjectInfo) extends UlyssesDefaults(info) {
-    val junit = "junit" % "junit" % "4.7" % "test"
-
-    val dataBinder = "DataBinder" at "http://databinder.net/repo"
-    val akkaRepo = "Akka Maven Repository" at "http://scalablesolutions.se/akka/repository"
-    /* akka dependencies */
-    val akkaCore = "se.scalablesolutions.akka" % "akka-core_2.8.0.Beta1"    % "0.8.1" % "compile"
-    val akkaKernel = "se.scalablesolutions.akka" % "akka-kernel_2.8.0.Beta1"  % "0.8.1" % "compile"
-    val akkaUtil = "se.scalablesolutions.akka" % "akka-util_2.8.0.Beta1"  % "0.8.1" % "compile"
-  }
+//  class Stm(info: ProjectInfo) extends UlyssesDefaults(info) {
+//    val junit = "junit" % "junit" % "4.7" % "test"
+//
+//    val dataBinder = "DataBinder" at "http://databinder.net/repo"
+//    val akkaRepo = "Akka Maven Repository" at "http://scalablesolutions.se/akka/repository"
+//    /* akka dependencies */
+//    val akkaCore = "se.scalablesolutions.akka" % "akka-core_2.8.0.Beta1"    % "0.8.1" % "compile"
+//    val akkaKernel = "se.scalablesolutions.akka" % "akka-kernel_2.8.0.Beta1"  % "0.8.1" % "compile"
+//    val akkaUtil = "se.scalablesolutions.akka" % "akka-util_2.8.0.Beta1"  % "0.8.1" % "compile"
+//  }
 
   class ScalacheckBinding(info: ProjectInfo) extends UlyssesDefaults(info) {
     override def compileClasspath = super.compileClasspath +++ scalacheckJar
   }
-
 
   class Full(info: ProjectInfo) extends UlyssesDefaults(info) {
     override def compileClasspath = super.compileClasspath +++ scalacheckJar
@@ -125,7 +113,7 @@ final class UlyssesProject(info: ProjectInfo) extends ParentProject(info) with O
     def packageFullAction = packageFull dependsOn(fullDoc)
 
     def packageFull = {
-      val allJars = Path.lazyPathFinder(Seq(core, stm).map(_.outputPath)).## ** GlobFilter("*jar")
+      val allJars = Path.lazyPathFinder(Seq(core).map(_.outputPath)).## ** GlobFilter("*jar")
       val p = parentPath
       val extra = p("README") +++ p("etc").## ** GlobFilter("*")
       val sourceFiles = allJars +++ extra +++ (((outputPath ##) / "doc") ** GlobFilter("*"))
